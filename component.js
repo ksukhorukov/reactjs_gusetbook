@@ -36,12 +36,19 @@ class Comment extends React.Component {
           {this.props.body}
         </p>
         <div className="comment-footer">
-          <a href="#" className="comment-footer-delete">
+          <a href="#" className="comment-footer-delete" onClick={this._handleDelete.bind(this)}>
             Delete comment
           </a>
         </div>
       </div>
     );
+  }
+
+  _handleDelete(event) {
+    event.preventDefault();
+    if (confirm('Are you sure?')) {
+      this.props.onDelete(this.props.comment);  
+    }
   }
 }
 
@@ -53,10 +60,7 @@ class CommentBox extends React.Component {
     
     this.state = {
       showComments: false,
-      comments: [
-        { id: 1, author: 'Morgan McCircuit', body: 'Great picture!' },
-        { id: 2, author: 'Bending Bender', body: 'Excelent stuff' }
-      ]
+      comments: []
     };
   }
 
@@ -73,7 +77,11 @@ class CommentBox extends React.Component {
   _getComments() {
     return this.state.comments.map((comment) => {
       return (
-        <Comment author={comment.author} body={comment.body} key={comment.id}/>
+        <Comment 
+          author={comment.author} 
+          body={comment.body} 
+          key={comment.id}
+          onDelete={this._deleteComment.bind(this)} />
       );
     });
   }
@@ -85,12 +93,49 @@ class CommentBox extends React.Component {
   }
 
   _addComment(author, body) {
-    const comment = {
-      id: this.state.comments.length + 1,
-      author,
-      body
-    };
-    this.setState({ comments: this.state.comments.concat([comment]) });
+    const comment = { author, body };
+
+    jQuery.post('/api/comments', { comment })
+      .success(newComment => {
+        this.setState({ comments: this.state.comments.concat([newComment]) });
+      });
+  }
+}
+
+  _fetchComments() {
+    jQuery.ajax({
+      method: 'GET',
+      url: '/api/comments',
+      success: (comments) => {
+        this.setState({ comments })
+      }
+    });
+  }
+
+  _deleteComment(comment) {
+
+    jQuery.ajax({
+      method: 'DELETE',
+      url: `/api/comments/${comment.id}`
+    });
+
+    const comments = [...this.state.comments];
+    const commentIndex = comments.indexOf(comment);
+    comment.splice(commentIndex, 1);
+
+    this.setState({ comments });
+  }
+
+  componentWillMount() {
+    this._fetchComments();
+  }
+
+  componentDidMount() {
+    this._timer = setInterval(() => this._fetchComments(), 5000);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this._timer);
   }
 
   render() {
